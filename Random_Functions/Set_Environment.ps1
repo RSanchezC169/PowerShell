@@ -29,56 +29,42 @@ Description of Script:
 ##################################################################################################################################################################
 #==============================Beginning of script================================================================================================================
 ##################################################################################################################################################################
-Function Set-Environment {
+# Define the global log file path at the start of the script
+$Global:LogFile = "C:\Rsanchezc169ScriptLogs\Log_$(Get-Date -Format 'MM_dd_yyyy_hh_mm_tt').log"
+
+# Global function to handle logging
+Function Write-Log {
     [CmdletBinding()]
     Param(
+        [Parameter(Mandatory)]
+        [string]$Message,                  # The message to log
         [Parameter()]
-        [string]$LogFile = "C:\EmailExportScriptLogs\ScriptActions.log"  # Default log file path
+        [string]$LogFile = $Global:LogFile # Optional: Specify a log file, default to the global log file
     )
 
-    # Ensure the directory for the log file exists
+    # Ensure the log file exists
     $LogDirectory = Split-Path -Path $LogFile
-    if (-not (Test-Path -Path $LogDirectory -ErrorAction SilentlyContinue)) {
-        New-Item -ItemType Directory -Path $LogDirectory -Force -ErrorAction SilentlyContinue | Out-Null
+    if (-not (Test-Path -Path $LogDirectory)) {
+        New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
     }
 
+    # Append the message to the log file with a timestamp
+    $Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    Add-Content -Path $LogFile -Value "$Timestamp : $Message"
+}
+##################################################################################################################################################################
+##################################################################################################################################################################
+Function Set-Environment {
     # Initialize progress bar
-    Write-Progress -Activity "Environment Setup" -Status "Starting setup..." -PercentComplete 0
+    Write-Progress -Activity "Environment Setup" -Status "Starting setup..." -PercentComplete 0 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
 
     try {
         # Step 1: Clear the console
-        Write-Progress -Activity "Environment Setup" -Status "Clearing console..." -PercentComplete 10
+        Write-Progress -Activity "Environment Setup" -Status "Clearing console..." -PercentComplete 10 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
         Clear-Host
 
-        # Step 2: Set execution policy
-        Write-Progress -Activity "Environment Setup" -Status "Setting execution policy..." -PercentComplete 20
-        Set-ExecutionPolicy -Scope "Process" -ExecutionPolicy "Unrestricted" -Force
-        Add-Content -Path $LogFile -Value "Execution policy set to 'Unrestricted' - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
-
-        # Step 3: Load required modules
-        Write-Progress -Activity "Environment Setup" -Status "Loading PowerShellGet module..." -PercentComplete 30
-        Load-Module -Module "PowerShellGet"
-        Add-Content -Path $LogFile -Value "PowerShellGet module loaded successfully - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
-
-        Write-Progress -Activity "Environment Setup" -Status "Loading Microsoft.Graph module..." -PercentComplete 40
-        Load-Module -Module "Microsoft.Graph"
-        Add-Content -Path $LogFile -Value "Microsoft.Graph module loaded successfully - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
-
-        # Step 4: Set window properties
-        Write-Progress -Activity "Environment Setup" -Status "Configuring console appearance..." -PercentComplete 60
-        $Host.UI.RawUI.BackgroundColor = ($bckgrnd = 'Black')
-        $Host.UI.RawUI.ForegroundColor = 'Blue'
-        $Host.UI.RawUI.WindowTitle = "Export Emails"
-        Add-Content -Path $LogFile -Value "Console appearance configured: BackgroundColor=Black, ForegroundColor=Blue, WindowTitle='Export Emails' - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
-
-        # Step 5: Configure session preferences
-        Write-Progress -Activity "Environment Setup" -Status "Setting session preferences..." -PercentComplete 70
-        $Global:FormatEnumerationLimit = -1 
-        $Global:ErrorActionPreference = "SilentlyContinue"
-        Add-Content -Path $LogFile -Value "Session preferences configured: FormatEnumerationLimit=-1, ErrorActionPreference=SilentlyContinue - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
-
-        # Step 6: Maximize window
-        Write-Progress -Activity "Environment Setup" -Status "Maximizing console window..." -PercentComplete 90
+        # Step 2: Maximize window
+        Write-Progress -Activity "Environment Setup" -Status "Maximizing console window..." -PercentComplete 90 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
         Add-Type -TypeDefinition @"
             using System;
             using System.Runtime.InteropServices;
@@ -90,24 +76,54 @@ Function Set-Environment {
 "@
         $handle = (Get-Process -ID $PID).MainWindowHandle
         [User32]::ShowWindow($handle, 3)  # Maximize window
-        Add-Content -Path $LogFile -Value "Console window maximized - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
+        Write-Log -Message "Console window maximized"
+
+        # Step 3: Set execution policy
+        Write-Progress -Activity "Environment Setup" -Status "Setting execution policy..." -PercentComplete 20 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Set-ExecutionPolicy -Scope "Process" -ExecutionPolicy "Unrestricted" -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Write-Log -Message "Execution policy set to 'Unrestricted'"
+
+        # Step 4: Load required modules
+        Write-Progress -Activity "Environment Setup" -Status "Loading PowerShellGet module..." -PercentComplete 30 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Load-Module -Module "PowerShellGet"
+        Write-Log -Message "PowerShellGet module loaded successfully"
+
+        Write-Progress -Activity "Environment Setup" -Status "Loading Microsoft.Graph module..." -PercentComplete 40 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Load-Module -Module "Microsoft.Graph.Authentication", "Microsoft.Graph.Groups", "Microsoft.Graph.Users", "Microsoft.Graph.Mail"
+        Write-Log -Message "Microsoft.Graph module loaded successfully"
+
+        # Step 5: Set window properties
+        Write-Progress -Activity "Environment Setup" -Status "Configuring console appearance..." -PercentComplete 60 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        $Host.UI.RawUI.BackgroundColor = ($bckgrnd = 'Black')
+        $Host.UI.RawUI.ForegroundColor = 'Blue'
+        $Host.UI.RawUI.WindowTitle = "Export Emails"
+        Write-Log -Message "Console appearance configured: BackgroundColor=Black, ForegroundColor=Blue, WindowTitle='Export Emails'"
+
+        # Step 6: Configure session preferences
+        Write-Progress -Activity "Environment Setup" -Status "Setting session preferences..." -PercentComplete 70 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        $Global:FormatEnumerationLimit = -1 
+        $Global:ErrorActionPreference = "SilentlyContinue"
+        Write-Log -Message "Session preferences configured: FormatEnumerationLimit=-1, ErrorActionPreference=SilentlyContinue"
 
         # Clear final progress
-        Write-Progress -Activity "Environment Setup" -Status "Setup complete." -PercentComplete 100
-        Write-Progress -Activity "Environment Setup" -Completed
-        Add-Content -Path $LogFile -Value "Environment setup completed successfully - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
+        Write-Progress -Activity "Environment Setup" -Status "Setup complete." -PercentComplete 100 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Write-Progress -Activity "Environment Setup" -Completed -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Write-Log -Message "Environment setup completed successfully"
     } catch {
         # Handle errors and log them
-        Write-Progress -Activity "Environment Setup" -Status "Setup failed due to an error." -PercentComplete 100
-        Write-Progress -Activity "Environment Setup" -Completed
-        Add-Content -Path $LogFile -Value "Error during environment setup: $($_.Exception.Message) - $((Get-Date).ToString("MM/dd/yyyy hh:mm:ss"))"
+        Write-Progress -Activity "Environment Setup" -Status "Setup failed due to an error." -PercentComplete 100 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Write-Progress -Activity "Environment Setup" -Completed -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+        Write-Log -Message "Error during environment setup: $($_.Exception.Message)"
         throw
     }
 
-    #Write-Host "Environment setup completed. Logs available at: $LogFile"
-    #Clear-Host
-}
+    Write-Progress -Activity "Environment Setup" -Completed -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
 
+    # Clean up
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+}
+##################################################################################################################################################################
 #Usage
 #Set-Environment
 ##################################################################################################################################################################
