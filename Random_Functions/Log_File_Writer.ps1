@@ -42,8 +42,8 @@ Function Write-Log {
         [Parameter(Mandatory)]
         [string]$Message,                  # The message to log
         [Parameter()]
-        [ValidateSet("INFO", "WARNING", "ERROR")]
-        [string]$Level = "INFO",           # Log level: INFO, WARNING, or ERROR
+        [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")]
+        [string]$Level = "INFO",           # Log level: INFO, WARNING, DEBUG, or ERROR
         [Parameter()]
         [string]$LogFile = $Global:LogFile # Optional: Specify a log file, default to the global log file
     )
@@ -75,12 +75,14 @@ Function Write-Log {
         Write-Warning "Failed to write log message: $($_.Exception.Message)"
     }
 }
+
 ##################################################################################################################################################################
 #=============================End of Functions====================================================================================================================
 ##################################################################################################################################################################
 #==============================Main===============================================================================================================================
 ##################################################################################################################################################################
 # Example Usage:
+# Write-Log -Message "Input was $x" -Level "DEBUG"
 # Write-Log -Message "Starting the script" -Level "INFO"
 # Write-Log -Message "Directory not found" -Level "WARNING"
 # Write-Log -Message "Critical failure during execution" -Level "ERROR"
