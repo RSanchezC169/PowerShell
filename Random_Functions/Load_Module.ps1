@@ -32,26 +32,46 @@ Description of Script:
 # Define the global log file path at the start of the script
 $Global:LogFile = "C:\Rsanchezc169ScriptLogs\Log_$(Get-Date -Format 'MM_dd_yyyy_hh_mm_tt').log"
 
-# Global function to handle logging
 Function Write-Log {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory)]
         [string]$Message,                  # The message to log
         [Parameter()]
+        [ValidateSet("INFO", "WARNING", "ERROR","DEBUG")]
+        [string]$Level = "INFO",           # Log level: INFO, WARNING, DEBUG, or ERROR
+        [Parameter()]
         [string]$LogFile = $Global:LogFile # Optional: Specify a log file, default to the global log file
     )
 
-    # Ensure the log file exists
-    $LogDirectory = Split-Path -Path $LogFile
-    if (-not (Test-Path -Path $LogDirectory)) {
-        New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
+    # Ensure the log directory exists
+    try {
+        $LogDirectory = Split-Path -Path $LogFile -ErrorAction SilentlyContinue
+        if (-not (Test-Path -Path $LogDirectory)) {
+            New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
+            #Write-Host "Log directory created: $LogDirectory" -ForegroundColor Yellow
+        }
+    } catch {
+        #Write-Warning "Failed to create log directory: $($_.Exception.Message)"
+        throw
     }
 
-    # Append the message to the log file with a timestamp
-    $Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    Add-Content -Path $LogFile -Value "$Timestamp : $Message"
+    # Append the message to the log file with timestamp and level
+    try {
+        $Timestamp = (Get-Date).ToString("yyyy-MM-dd hh:mm:ss tt")
+        Add-Content -Path $LogFile -Value "$Timestamp [$Level] : $Message"
+        if ($Level -eq "ERROR") {
+            #Write-Warning "Logged error: $Message"
+        } elseif ($Level -eq "WARNING") {
+            #Write-Host "Logged warning: $Message" -ForegroundColor Yellow
+        } else {
+            #Write-Host "Logged message: $Message" -ForegroundColor Green
+        }
+    } catch {
+        #Write-Warning "Failed to write log message: $($_.Exception.Message)"
+    }
 }
+
 ##################################################################################################################################################################
 ##################################################################################################################################################################
 Function Load-Module {
@@ -59,72 +79,51 @@ Function Load-Module {
     Param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$Modules  # Supports multiple modules
+        [string[]]$Modules  # Allows processing multiple modules at once
     )
 
-    Foreach ($Module in $Modules) {
-        Write-Progress -Activity "Processing Module: $($Module)" -Status "Starting task..." -PercentComplete 0 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-        
-        Try {
+    Write-Log -Message "Started Function Load-Module" -Level "INFO"
+
+    foreach ($Module in $Modules) {
+        Write-Progress -Activity "Processing Module: $Module" -Status "Initializing..." -PercentComplete 0
+
+        try {
             # Step 1: Check if the module is installed
-            Write-Progress -Activity "Processing Module: $($Module)" -Status "Checking installation status..." -PercentComplete 20 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-            if ((Get-InstalledModule -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue) -OR (Get-Module -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue)) {
-                Write-Warning "Module '$Module' is already installed"
-                Write-Log -Message "Module '$Module' is already installed"
+            Write-Log -Message "Checking if module '$Module' is installed..." -Level "INFO"
+            if ((Get-InstalledModule -Name $Module -ErrorAction SilentlyContinue) -or (Get-Module -Name $Module -ErrorAction SilentlyContinue)) {
+                Write-Log -Message "Module '$Module' is already installed." -Level "INFO"
             } else {
-                Write-Progress -Activity "Processing Module: $($Module)" -Status "Installing module..." -PercentComplete 40 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-                Install-Module -Name "$Module*" -Force -Scope CurrentUser -ErrorAction Stop -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-                Write-Log -Message "Module '$Module' installed successfully"
+                Write-Log -Message "Module '$Module' is not installed. Attempting to install..." -Level "WARNING"
+                Install-Module -Name $Module -Force -Scope CurrentUser -ErrorAction Stop
+                Write-Log -Message "Module '$Module' installed successfully." -Level "INFO"
             }
 
-            # Step 2: Check for updates
-            Write-Progress -Activity "Processing Module: $($Module)" -Status "Checking for updates..." -PercentComplete 60 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-            $CurrentVersion = (Find-Module -Name "$Module" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue).Version
-            $InstalledVersion = IF(Get-InstalledModule -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue){(Get-InstalledModule -Name "$Module" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue).Version} ELSEIF(Get-Module -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue){(Get-Module -Name "$Module" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue).Version}
-            
+            # Step 2: Check for module updates
+            Write-Log -Message "Checking for updates to module '$Module'..." -Level "INFO"
+            $CurrentVersion = (Find-Module -Name $Module -ErrorAction SilentlyContinue).Version
+            $InstalledVersion = (Get-InstalledModule -Name $Module -ErrorAction SilentlyContinue).Version
             if ($CurrentVersion -and $InstalledVersion -and $CurrentVersion -gt $InstalledVersion) {
-                Write-Progress -Activity "Processing Module: $($Module)" -Status "Updating module..." -PercentComplete 80 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-                Update-Module -Name "$Module" -Force -ErrorAction Stop -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-                Write-Log -Message "Module '$Module' updated successfully"
+                Write-Log -Message "Updating module '$Module' to version $CurrentVersion..." -Level "INFO"
+                Update-Module -Name $Module -Force -ErrorAction Stop
+                Write-Log -Message "Module '$Module' updated successfully to version $CurrentVersion." -Level "INFO"
             } else {
-                Write-Warning "Module '$Module' is up-to-date"
-                Write-Log -Message "Module '$Module' is already up to date"
+                Write-Log -Message "Module '$Module' is up-to-date." -Level "INFO"
             }
 
             # Step 3: Import the module
-            [ARRAY]$CurrentModules = @()
-            IF (Get-InstalledModule -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue) {
-                $CurrentModules = (Get-InstalledModule -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue).Name
-            } ELSEIF(Get-Module -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue) {
-                $CurrentModules = (Get-Module -Name "$Module*" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue).Name
-            }
-
-            if ($CurrentModules) {
-                Foreach ($CurrentModule in $CurrentModules) {
-                    Write-Progress -Activity "Processing Sub-Module: $($CurrentModule)" -Status "Importing module..." -PercentComplete 90 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-                    
-                    Try {
-                        Import-Module -Name "$CurrentModule" -Force -ErrorAction Stop -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-                        Write-Log -Message "Module '$CurrentModule' imported successfully"
-                    } Catch {
-                        Write-Log -Message "Error importing sub-module '$CurrentModule': $($_.Exception.Message)"
-                        Write-Warning "Error importing sub-module '$CurrentModule'. Check logs for details."
-                    }
-                }
-            } else {
-                Write-Warning "No modules found matching '$Module'. Ensure the module name is correct."
-                Write-Log -Message "No modules found matching '$Module'"
-            }
-        } Catch {
-            # Log any errors
-            Write-Log -Message "Error processing module '$Module': $($_.Exception.Message)"
-            Write-Warning "Error processing module '$Module'. Check logs for details."
+            Write-Log -Message "Importing module '$Module'..." -Level "INFO"
+            Import-Module -Name $Module -Force -ErrorAction Stop
+            Write-Log -Message "Module '$Module' imported successfully." -Level "INFO"
+        } catch {
+            # Log any errors that occur while processing the module
+            Write-Log -Message "Error processing module '$Module': $($_.Exception.Message)" -Level "ERROR"
         }
     }
 
-    # Clear the progress bar
-    Write-Progress -Activity "Module Processing" -Status "Completed all tasks." -PercentComplete 100 -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
-    Write-Progress -Activity "Module Processing" -Completed -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -InformationAction SilentlyContinue
+    # Clear progress
+    Write-Progress -Activity "Module Processing" -Status "Complete" -PercentComplete 100 -Completed
+
+    Write-Log -Message "Ended Function Load-Module" -Level "INFO"
 }
 ##################################################################################################################################################################
 #Usage Examples
