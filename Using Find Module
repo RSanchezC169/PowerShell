@@ -1,0 +1,61 @@
+##################################################################################################################################################################
+##################################################################################################################################################################
+<#
+                 _..--+~/@-~--.
+             _-=~      (  .   "}
+          _-~     _.--=.\ \""""
+        _~      _-       \ \_\
+       =      _=          '--'
+      '      =                             .
+     :      :       ____                   '=_. ___
+___  |      ;                            ____ '~--.~.
+     ;      ;                               _____  } |
+  ___=       \ ___ __     __..-...__           ___/__/__
+     :        =_     _.-~~          ~~--.__
+_____ \         ~-+-~                   ___~=_______
+     ~@#~~ == ...______ __ ___ _--~~--_
+                                                    =
+██████╗ ███████╗ █████╗ ███╗   ██╗ ██████╗██╗  ██╗███████╗███████╗ ██████╗ ██╗ ██████╗ █████╗ 
+██╔══██╗██╔════╝██╔══██╗████╗  ██║██╔════╝██║  ██║██╔════╝╚══███╔╝██╔════╝███║██╔════╝██╔══██╗
+██████╔╝███████╗███████║██╔██╗ ██║██║     ███████║█████╗    ███╔╝ ██║     ╚██║███████╗╚██████║
+██╔══██╗╚════██║██╔══██║██║╚██╗██║██║     ██╔══██║██╔══╝   ███╔╝  ██║      ██║██╔═══██╗╚═══██║
+██║  ██║███████║██║  ██║██║ ╚████║╚██████╗██║  ██║███████╗███████╗╚██████╗ ██║╚██████╔╝█████╔╝
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝ ╚═════╝ ╚════╝ 
+Script Version: 1
+OS Version Script was written on: Microsoft Windows 11 Pro : 10.0.25100 Build 26100
+PSVersion 5.1.26100.2161 : PSEdition Desktop : Build Version 10.0.26100.2161
+Description: This is a list of examples on using Find-Module to find Microsoft Modules and commands.
+#>
+##################################################################################################################################################################
+##################################################################################################################################################################
+#Find Module Information by module name
+Find-Module –Name “MODULE NAME” | Select-Object –Property *
+
+#Find Module Author of module by module name
+(Find-Module –Name “MODULE NAME” ).Author
+
+#Find all Modules made by Microsoft
+Find-Module | Where-Object { ($_.CompanyName -EQ "Microsoft Corporation") -OR ($_.Author -EQ "Microsoft Corporation") -OR ($_.Copyright -EQ "c Microsoft Corporation. All rights reserved.") }| Select-Object -Property Name | Sort-Object -Property Name
+
+#Find Module by a command
+Find-Module | Where-Object {($_.Includes.Command -Like “COMMAND“) –OR ($_.Includes.Cmdlet  –LIKE “COMMAND”)}
+
+#Find commands in a module by module name
+(Find-Module -Name “MODULE NAME").Includes.Cmdlet
+or
+(Find-Module -Name "MODULE NAME").Includes.Command 
+
+#Finding Connect and Disconnect Commands in a module by module name
+Find-Module –Name “MODULE NAME” | Where-Object {($_.Includes.Commands –LIKE “Connect-*”) –OR ($_.Includes.Cmdlet –LIKE “Connect-*”)} | Select-Object -Property Name,@{LABEL='Connect Command';EXPRESSION={$_.Includes.Command -LIKE "Connect-*"}} | Format-List
+and
+Find-Module –Name “MODULE NAME” | Where-Object {($_.Includes.Commands –LIKE “Disconnect-*”) –OR ($_.Includes.Cmdlet –LIKE “Disconnect-*”)} | Select-Object -Property Name, @{LABEL=‘Disconnect Command';EXPRESSION={$_.Includes.Command -LIKE “Disconnect-*"}} | Format-List
+or
+Find-Module –Name “MODULE NAME” | Select-Object -Property Name, @{LABEL=‘Disconnect Command';EXPRESSION={$_.Includes.Command -LIKE “Disconnect-*"}},@{LABEL='Connect Command';EXPRESSION={$_.Includes.Command -LIKE "Connect-*"}} | Format-List
+
+#Find module, disconnect, and connect commands by command
+Find-Module | Where-Object {($_.Includes.Command -Like “COMMAND“) –OR ($_.Includes.Cmdlet –LIKE “COMMAND”)} | Select-Object -Property Name, @{LABEL=‘Disconnect Command';EXPRESSION={$_.Includes.Command -LIKE “Disconnect-*"}},@{LABEL='Connect Command';EXPRESSION={$_.Includes.Command -LIKE "Connect-*"}} | Format-List
+
+#Find all Modules made by microsoft and find there connect and disconnect commands
+Find-Module | Where-Object { ($_.CompanyName -EQ "Microsoft Corporation") -OR ($_.Author -EQ "Microsoft Corporation") -OR ($_.Copyright -EQ "c Microsoft Corporation. All rights reserved.")}| Select-Object -Property Name,@{LABEL=‘Disconnect Command';EXPRESSION={$_.Includes.Command -LIKE “Disconnect-*"}},@{LABEL='Connect Command';EXPRESSION={$_.Includes.Command -LIKE "Connect-*"}}  | Sort-Object -Property Name | Format-List
+##################################################################################################################################################################
+##################################################################################################################################################################
